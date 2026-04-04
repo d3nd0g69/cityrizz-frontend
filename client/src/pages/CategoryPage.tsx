@@ -2,18 +2,33 @@
  * CityRizz Category Archive Page
  */
 
+import { useState, useEffect } from "react";
 import { Link, useParams } from "wouter";
 import { ChevronRight } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Sidebar from "@/components/Sidebar";
 import PostCard from "@/components/PostCard";
-import { categories, getPostsByCategory, getCategoryBadgeClass } from "@/lib/mockData";
+import { getAllCategories, getPostsByCategory, getCategoryBadgeClass, type Post, type Category } from "@/lib/api";
 
 export default function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
-  const category = categories.find(c => c.slug === slug);
-  const catPosts = getPostsByCategory(slug || "");
+  const [category, setCategory] = useState<Category | undefined>(undefined);
+  const [catPosts, setCatPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!slug) return;
+    setLoading(true);
+    Promise.all([
+      getAllCategories(),
+      getPostsByCategory(slug, 20),
+    ]).then(([cats, posts]) => {
+      setCategory(cats.find(c => c.slug === slug));
+      setCatPosts(posts);
+      setLoading(false);
+    });
+  }, [slug]);
 
   if (!category) {
     return (

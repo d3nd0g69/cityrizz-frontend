@@ -3,17 +3,45 @@
  * Design: Full article view with sidebar, author bio, related posts
  */
 
+import { useState, useEffect } from "react";
 import { Link, useParams } from "wouter";
 import { Clock, User, Tag, Facebook, Twitter, Link2, ChevronRight } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Sidebar from "@/components/Sidebar";
 import PostCard from "@/components/PostCard";
-import { getPostBySlug, getPostsByCategory, getCategoryBadgeClass } from "@/lib/mockData";
+import { getPostBySlug, getPostsByCategory, getCategoryBadgeClass, type Post } from "@/lib/api";
 
 export default function PostDetail() {
   const { slug } = useParams<{ slug: string }>();
-  const post = getPostBySlug(slug || "");
+  const [post, setPost] = useState<Post | undefined>(undefined);
+  const [related, setRelated] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!slug) return;
+    setLoading(true);
+    getPostBySlug(slug).then(async (p) => {
+      setPost(p);
+      if (p) {
+        const rel = await getPostsByCategory(p.categorySlug, 4);
+        setRelated(rel.filter(r => r.id !== p.id).slice(0, 3));
+      }
+      setLoading(false);
+    });
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <div className="container py-20 text-center">
+          <div className="w-8 h-8 border-2 border-[#c0392b] border-t-transparent rounded-full animate-spin mx-auto" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!post) {
     return (
@@ -34,7 +62,6 @@ export default function PostDetail() {
   }
 
   const badgeClass = getCategoryBadgeClass(post.categorySlug);
-  const related = getPostsByCategory(post.categorySlug).filter(p => p.id !== post.id).slice(0, 3);
 
   return (
     <div className="min-h-screen bg-white">
