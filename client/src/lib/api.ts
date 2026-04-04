@@ -196,9 +196,6 @@ export async function getHomepageData(): Promise<HomepageData> {
 
   const data = await gql<any>(`
     query HomepageData {
-      featured: posts(first: 3, where: { status: PUBLISH, onlySticky: true }) {
-        nodes { ${POST_FIELDS} }
-      }
       latest: posts(first: 12, where: { status: PUBLISH }) {
         nodes { ${POST_FIELDS} }
       }
@@ -220,19 +217,19 @@ export async function getHomepageData(): Promise<HomepageData> {
   // Image width strategy per placement:
   // featured hero (large card, 665px wide on desktop): 768px
   // latest grid (medium card, 400px wide): 600px
-  // category spotlights (280px tall card): 600px
-  const normalizeHero = (wp: any) => normalizeWPPost(wp, 768);
-  const normalizeMed  = (wp: any) => normalizeWPPost(wp, 600);
+  // category spotlights thumbnails: 300px
+  const normalizeHero  = (wp: any) => normalizeWPPost(wp, 768);
+  const normalizeMed   = (wp: any) => normalizeWPPost(wp, 600);
   const normalizeThumb = (wp: any) => normalizeWPPost(wp, 300);
 
-  const featured = data.featured.nodes.map(normalizeHero);
+  // Use first 3 latest posts as hero featured posts (no sticky dependency)
   return {
-    featured: featured.length > 0 ? featured : data.latest.nodes.slice(0, 3).map(normalizeHero),
+    featured: data.latest.nodes.slice(0, 3).map(normalizeHero),
     latest:   data.latest.nodes.map(normalizeMed),
-    arts:     data.arts.nodes.map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
-    food:     data.food.nodes.map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
-    music:    data.music.nodes.map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
-    politics: data.politics.nodes.map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
+    arts:     (data.arts.nodes || []).map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
+    food:     (data.food.nodes || []).map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
+    music:    (data.music.nodes || []).map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
+    politics: (data.politics.nodes || []).map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
   };
 }
 
