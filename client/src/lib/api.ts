@@ -4,8 +4,10 @@
  * Uses live WPGraphQL from WP Engine when VITE_WORDPRESS_API_URL is set,
  * otherwise falls back to local mock data for development.
  *
- * All page components should import from this file, not from mockData.ts
- * or wpgraphql.ts directly.
+ * Performance: getHomepageData() fires a SINGLE batched GraphQL query
+ * instead of 6 separate requests, dramatically reducing waterfall latency.
+ *
+ * All page components should import from this file only.
  */
 
 const WP_API_URL = import.meta.env.VITE_WORDPRESS_API_URL as string | undefined;
@@ -39,19 +41,28 @@ export interface Category {
   color: string;
 }
 
-// ── Category color map (used for both live and mock) ──────────────────────────
+export interface HomepageData {
+  featured: Post[];
+  latest: Post[];
+  arts: Post[];
+  food: Post[];
+  music: Post[];
+  politics: Post[];
+}
+
+// ── Category color map ────────────────────────────────────────────────────────
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  news:          "#c0392b",
-  arts:          "#8e44ad",
-  "arts-culture":"#8e44ad",
-  food:          "#d35400",
-  "food-drink":  "#d35400",
-  music:         "#2980b9",
-  politics:      "#2c3e50",
-  sports:        "#16a085",
-  opinion:       "#7f8c8d",
-  "things-to-do":"#27ae60",
+  news:           "#c0392b",
+  arts:           "#8e44ad",
+  "arts-culture": "#8e44ad",
+  food:           "#d35400",
+  "food-drink":   "#d35400",
+  music:          "#2980b9",
+  politics:       "#2c3e50",
+  sports:         "#16a085",
+  opinion:        "#7f8c8d",
+  "things-to-do": "#27ae60",
 };
 
 export function getCategoryColor(slug: string): string {
@@ -94,10 +105,9 @@ function normalizeWPPost(wp: any): Post {
   const cat = wp.categories?.nodes?.[0];
   const author = wp.author?.node;
   const rawSlug = cat?.slug || "uncategorized";
-  // Normalize WP category slugs to our internal slugs
   const slugMap: Record<string, string> = {
     "arts-culture": "arts",
-    "food-drink": "food",
+    "food-drink":   "food",
   };
   const catSlug = slugMap[rawSlug] || rawSlug;
 
@@ -127,10 +137,12 @@ function normalizeWPPost(wp: any): Post {
 
 function stripHtml(html: string) { return html.replace(/<[^>]*>/g, "").trim(); }
 function decodeEntities(str: string) {
-  return str.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, " ");
+  return str
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, " ");
 }
 
-// ── GraphQL queries ───────────────────────────────────────────────────────────
+// ── Shared post fields fragment ───────────────────────────────────────────────
 
 const POST_FIELDS = `
   id slug title excerpt date isSticky
@@ -140,7 +152,57 @@ const POST_FIELDS = `
   tags { nodes { name slug } }
 `;
 
-// ── Public API ────────────────────────────────────────────────────────────────
+// ── BATCHED homepage query (single round-trip) ────────────────────────────────
+
+export async function getHomepageData(): Promise<HomepageData> {
+  if (!USE_LIVE) {
+    const { posts, getFeaturedPosts, getPostsByCategory } = await import("./mockData");
+    return {
+      featured: getFeaturedPosts() as Post[],
+      latest:   (posts as Post[]).slice(0, 12),
+      arts:     getPostsByCategory("arts") as Post[],
+      food:     getPostsByCategory("food") as Post[],
+      music:    getPostsByCategory("music") as Post[],
+      politics: getPostsByCategory("politics") as Post[],
+    };
+  }
+
+  const data = await gql<any>(`
+    query HomepageData {
+      featured: posts(first: 3, where: { status: PUBLISH, onlySticky: true }) {
+        nodes { ${POST_FIELDS} }
+      }
+      latest: posts(first: 12, where: { status: PUBLISH }) {
+        nodes { ${POST_FIELDS} }
+      }
+      arts: posts(first: 4, where: { status: PUBLISH, categoryName: "arts-culture" }) {
+        nodes { ${POST_FIELDS} }
+      }
+      food: posts(first: 4, where: { status: PUBLISH, categoryName: "food-drink" }) {
+        nodes { ${POST_FIELDS} }
+      }
+      music: posts(first: 4, where: { status: PUBLISH, categoryName: "music" }) {
+        nodes { ${POST_FIELDS} }
+      }
+      politics: posts(first: 4, where: { status: PUBLISH, categoryName: "politics" }) {
+        nodes { ${POST_FIELDS} }
+      }
+    }
+  `);
+
+  const featured = data.featured.nodes.map(normalizeWPPost);
+  return {
+    // If no sticky posts, fall back to first 3 from latest
+    featured: featured.length > 0 ? featured : data.latest.nodes.slice(0, 3).map(normalizeWPPost),
+    latest:   data.latest.nodes.map(normalizeWPPost),
+    arts:     data.arts.nodes.map(normalizeWPPost),
+    food:     data.food.nodes.map(normalizeWPPost),
+    music:    data.music.nodes.map(normalizeWPPost),
+    politics: data.politics.nodes.map(normalizeWPPost),
+  };
+}
+
+// ── Individual query functions (used by inner pages) ─────────────────────────
 
 export async function getAllPosts(limit = 20): Promise<Post[]> {
   if (!USE_LIVE) {
@@ -173,7 +235,6 @@ export async function getPostsByCategory(categorySlug: string, limit = 12): Prom
     const { getPostsByCategory: mockGet } = await import("./mockData");
     return mockGet(categorySlug) as Post[];
   }
-  // Map our internal slugs back to WP category names for the query
   const nameMap: Record<string, string> = {
     arts: "arts-culture",
     food: "food-drink",
@@ -199,7 +260,6 @@ export async function getFeaturedPosts(limit = 3): Promise<Post[]> {
         nodes { ${POST_FIELDS} }
       }
     }`, { first: limit });
-  // If no sticky posts, fall back to latest
   if (!data.posts.nodes.length) return getAllPosts(limit);
   return data.posts.nodes.map(normalizeWPPost);
 }
@@ -216,8 +276,8 @@ export async function getAllCategories(): Promise<Category[]> {
       }
     }`);
   return data.categories.nodes.map((c: any) => ({
-    name: c.name,
-    slug: c.slug,
+    name:  c.name,
+    slug:  c.slug,
     count: c.count || 0,
     color: getCategoryColor(c.slug),
   }));

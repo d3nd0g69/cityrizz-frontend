@@ -1,20 +1,26 @@
 /*
  * CityRizz PostCard Component
  * Reusable card for displaying post previews across the site
- * Variants: large (hero), medium (featured), small (list)
+ * Variants: large (hero/LCP), medium (featured), small (list), horizontal
+ *
+ * Performance notes:
+ * - large variant: fetchpriority="high" + eager load (it IS the LCP element)
+ * - all other variants: loading="lazy" + decoding="async" to reduce main thread work
+ * - explicit width/height on all images to reserve layout space and prevent CLS
  */
 
 import { Link } from "wouter";
 import { Clock, User } from "lucide-react";
-import { Post, getCategoryBadgeClass } from "@/lib/mockData";
+import { type Post, getCategoryBadgeClass } from "@/lib/api";
 
 interface PostCardProps {
   post: Post;
   variant?: "large" | "medium" | "small" | "horizontal";
   showExcerpt?: boolean;
+  isLCP?: boolean; // true only for the very first hero image
 }
 
-export default function PostCard({ post, variant = "medium", showExcerpt = false }: PostCardProps) {
+export default function PostCard({ post, variant = "medium", showExcerpt = false, isLCP = false }: PostCardProps) {
   const badgeClass = getCategoryBadgeClass(post.categorySlug);
 
   if (variant === "large") {
@@ -25,6 +31,11 @@ export default function PostCard({ post, variant = "medium", showExcerpt = false
             src={post.featureImg}
             alt={post.title}
             className="w-full h-full object-cover"
+            width={800}
+            height={480}
+            fetchPriority={isLCP ? "high" : "auto"}
+            loading={isLCP ? "eager" : "lazy"}
+            decoding={isLCP ? "sync" : "async"}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
         </div>
@@ -65,6 +76,10 @@ export default function PostCard({ post, variant = "medium", showExcerpt = false
             src={post.featureImg}
             alt={post.title}
             className="w-full h-full object-cover"
+            width={96}
+            height={80}
+            loading="lazy"
+            decoding="async"
           />
         </div>
         <div className="flex flex-col justify-center min-w-0">
@@ -91,6 +106,10 @@ export default function PostCard({ post, variant = "medium", showExcerpt = false
             src={post.featureImg}
             alt={post.title}
             className="w-full h-full object-cover"
+            width={80}
+            height={64}
+            loading="lazy"
+            decoding="async"
           />
         </div>
         <div className="min-w-0">
@@ -116,6 +135,10 @@ export default function PostCard({ post, variant = "medium", showExcerpt = false
           src={post.featureImg}
           alt={post.title}
           className="w-full h-full object-cover"
+          width={400}
+          height={200}
+          loading="lazy"
+          decoding="async"
         />
       </div>
       <span className={badgeClass}>{post.category}</span>

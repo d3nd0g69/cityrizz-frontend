@@ -1,7 +1,7 @@
 /*
  * CityRizz Home Page
- * Design: Modern City Magazine
- * Data: Unified API (WPGraphQL live or mock fallback)
+ * Design: Modern City Magazine — bold editorial, crimson accent, Playfair/Oswald/Inter
+ * Performance: Single batched GraphQL query via getHomepageData() — no waterfall
  */
 
 import { useState, useEffect } from "react";
@@ -12,15 +12,15 @@ import Footer from "@/components/Footer";
 import PostCard from "@/components/PostCard";
 import Sidebar from "@/components/Sidebar";
 import {
-  getAllPosts,
-  getFeaturedPosts,
-  getPostsByCategory,
+  getHomepageData,
   getCategoryBadgeClass,
   type Post,
+  type HomepageData,
 } from "@/lib/api";
 import { trendingHeadlines } from "@/lib/mockData";
 
-// Breaking news ticker
+// ── Breaking news ticker ──────────────────────────────────────────────────────
+
 function BreakingTicker() {
   return (
     <div className="bg-[#c0392b] text-white py-2 overflow-hidden">
@@ -46,7 +46,8 @@ function BreakingTicker() {
   );
 }
 
-// Hero section
+// ── Hero section ──────────────────────────────────────────────────────────────
+
 function HeroSection({ posts }: { posts: Post[] }) {
   const [main, ...secondary] = posts;
   if (!main) return null;
@@ -56,13 +57,22 @@ function HeroSection({ posts }: { posts: Post[] }) {
       <div className="container">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <PostCard post={main} variant="large" />
+            {/* LCP element — fetchpriority=high, eager load */}
+            <PostCard post={main} variant="large" isLCP={true} />
           </div>
           <div className="flex flex-col gap-4">
             {secondary.slice(0, 2).map((post) => (
               <div key={post.id} className="post-card group relative overflow-hidden" style={{ height: "228px" }}>
                 <div className="post-img absolute inset-0">
-                  <img src={post.featureImg} alt={post.title} className="w-full h-full object-cover" />
+                  <img
+                    src={post.featureImg}
+                    alt={post.title}
+                    className="w-full h-full object-cover"
+                    width={400}
+                    height={228}
+                    loading="lazy"
+                    decoding="async"
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
@@ -83,6 +93,8 @@ function HeroSection({ posts }: { posts: Post[] }) {
   );
 }
 
+// ── Section header ────────────────────────────────────────────────────────────
+
 function SectionHeader({ title, href }: { title: string; href: string }) {
   return (
     <div className="flex items-center justify-between mb-5">
@@ -98,6 +110,8 @@ function SectionHeader({ title, href }: { title: string; href: string }) {
     </div>
   );
 }
+
+// ── Latest stories section ────────────────────────────────────────────────────
 
 function LatestSection({ posts }: { posts: Post[] }) {
   return (
@@ -121,15 +135,16 @@ function LatestSection({ posts }: { posts: Post[] }) {
   );
 }
 
-function CategorySpotlight({ categorySlug, categoryName, color }: { categorySlug: string; categoryName: string; color: string }) {
-  const [catPosts, setCatPosts] = useState<Post[]>([]);
+// ── Category spotlight section ────────────────────────────────────────────────
 
-  useEffect(() => {
-    getPostsByCategory(categorySlug, 4).then(setCatPosts);
-  }, [categorySlug]);
-
-  if (catPosts.length === 0) return null;
-  const [main, ...rest] = catPosts;
+function CategorySpotlight({ posts, categorySlug, categoryName, color }: {
+  posts: Post[];
+  categorySlug: string;
+  categoryName: string;
+  color: string;
+}) {
+  if (posts.length === 0) return null;
+  const [main, ...rest] = posts;
 
   return (
     <section className="py-8 border-t border-gray-100">
@@ -139,7 +154,15 @@ function CategorySpotlight({ categorySlug, categoryName, color }: { categorySlug
           <div className="md:col-span-1">
             <div className="post-card group relative overflow-hidden" style={{ height: "280px" }}>
               <div className="post-img absolute inset-0">
-                <img src={main.featureImg} alt={main.title} className="w-full h-full object-cover" />
+                <img
+                  src={main.featureImg}
+                  alt={main.title}
+                  className="w-full h-full object-cover"
+                  width={400}
+                  height={280}
+                  loading="lazy"
+                  decoding="async"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
@@ -166,6 +189,8 @@ function CategorySpotlight({ categorySlug, categoryName, color }: { categorySlug
   );
 }
 
+// ── Promo banner ──────────────────────────────────────────────────────────────
+
 function PromoBanner() {
   return (
     <section className="py-16 relative overflow-hidden" style={{ backgroundImage: `url(https://d2xsxph8kpxj0f.cloudfront.net/310519663410540603/RNXUZTBUpxjK5nwfDU4q4i/cityrizz-hero-main-7dmNJ3XocoJ8goLrW33o8m.webp)`, backgroundSize: "cover", backgroundPosition: "center 40%" }}>
@@ -181,7 +206,7 @@ function PromoBanner() {
           CityRizz is free to read, forever. Support independent local journalism by subscribing to our newsletter or becoming a sustaining member.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/subscribe" className="px-6 py-3 bg-[#c0392b] text-white text-sm font-bold hover:bg-[#a93226] transition-colors no-underline" style={{ fontFamily: "'Oswald', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          <Link href="/about" className="px-6 py-3 bg-[#c0392b] text-white text-sm font-bold hover:bg-[#a93226] transition-colors no-underline" style={{ fontFamily: "'Oswald', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" }}>
             Subscribe Free
           </Link>
           <Link href="/about" className="px-6 py-3 border border-white text-white text-sm font-bold hover:bg-white hover:text-[#1a1a2e] transition-colors no-underline" style={{ fontFamily: "'Oswald', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" }}>
@@ -193,26 +218,31 @@ function PromoBanner() {
   );
 }
 
+// ── Main Home component ───────────────────────────────────────────────────────
+
+const EMPTY_DATA: HomepageData = {
+  featured: [], latest: [], arts: [], food: [], music: [], politics: [],
+};
+
 export default function Home() {
-  const [featuredPosts, setFeaturedPosts] = useState<Post[]>([]);
-  const [latestPosts, setLatestPosts] = useState<Post[]>([]);
+  const [data, setData] = useState<HomepageData>(EMPTY_DATA);
 
   useEffect(() => {
-    getFeaturedPosts(3).then(setFeaturedPosts);
-    getAllPosts(12).then(setLatestPosts);
+    // Single batched request — replaces 6 separate GraphQL calls
+    getHomepageData().then(setData);
   }, []);
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
       <BreakingTicker />
-      <HeroSection posts={featuredPosts} />
-      <LatestSection posts={latestPosts} />
-      <CategorySpotlight categorySlug="arts" categoryName="Arts & Culture" color="#8e44ad" />
-      <CategorySpotlight categorySlug="food" categoryName="Food & Drink" color="#d35400" />
+      <HeroSection posts={data.featured} />
+      <LatestSection posts={data.latest} />
+      <CategorySpotlight posts={data.arts}     categorySlug="arts"     categoryName="Arts & Culture" color="#8e44ad" />
+      <CategorySpotlight posts={data.food}     categorySlug="food"     categoryName="Food & Drink"   color="#d35400" />
       <PromoBanner />
-      <CategorySpotlight categorySlug="music" categoryName="Music" color="#2980b9" />
-      <CategorySpotlight categorySlug="politics" categoryName="Politics" color="#2c3e50" />
+      <CategorySpotlight posts={data.music}    categorySlug="music"    categoryName="Music"          color="#2980b9" />
+      <CategorySpotlight posts={data.politics} categorySlug="politics" categoryName="Politics"       color="#2c3e50" />
       <Footer />
     </div>
   );

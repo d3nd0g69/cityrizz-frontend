@@ -5,9 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>CityRizz - Your City, Your Stories</title>
     <meta name="description" content="CityRizz is your free source for local news, arts and culture, restaurant reviews, music, things to do, and more." />
+
+    <!-- Preconnect to critical origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://cityrizzcom.wpenginepowered.com" crossorigin />
+    <link rel="preconnect" href="https://d2xsxph8kpxj0f.cloudfront.net" crossorigin />
+
+    <!-- Non-blocking font load: use media trick to avoid render blocking -->
+    <link
+      rel="preload"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&display=optional"
+      as="style"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&display=optional" rel="stylesheet" />
+    </noscript>
+
+    <!-- Inline critical font-face fallbacks to prevent CLS from font swap -->
+    <style>
+      /* System font stack as fallback while web fonts load — prevents layout shift */
+      body {
+        font-family: Georgia, 'Times New Roman', serif;
+      }
+      .font-sans, nav, footer, .text-sm, .text-xs, button, input {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
