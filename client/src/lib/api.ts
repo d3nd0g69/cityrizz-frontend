@@ -101,7 +101,21 @@ async function gql<T>(query: string, variables: Record<string, unknown> = {}): P
 
 // ── Normalizer ────────────────────────────────────────────────────────────────
 
-function normalizeWPPost(wp: any): Post {
+// Pick the best pre-generated WP image size for a given target width
+function pickImageSize(node: any, targetWidth: number): string {
+  if (!node) return "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=80";
+  const sizes: Array<{ name: string; sourceUrl: string; width: string }> =
+    node.mediaDetails?.sizes || [];
+  if (sizes.length === 0) return node.sourceUrl || "";
+  // Sort ascending by width, pick smallest that is >= targetWidth
+  const sorted = [...sizes]
+    .filter((s) => s.sourceUrl)
+    .sort((a, b) => parseInt(a.width) - parseInt(b.width));
+  const fit = sorted.find((s) => parseInt(s.width) >= targetWidth);
+  return (fit || sorted[sorted.length - 1]).sourceUrl;
+}
+
+function normalizeWPPost(wp: any, imgWidth = 768): Post {
   const cat = wp.categories?.nodes?.[0];
   const author = wp.author?.node;
   const rawSlug = cat?.slug || "uncategorized";
@@ -128,7 +142,7 @@ function normalizeWPPost(wp: any): Post {
     authorBio: author?.description || "",
     date: new Date(wp.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
     readTime,
-    featureImg: wp.featuredImage?.node?.sourceUrl || "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=80",
+    featureImg: pickImageSize(wp.featuredImage?.node, imgWidth),
     trending: false,
     featured: wp.isSticky || false,
     tags: wp.tags?.nodes?.map((t: any) => t.name) || [],
@@ -146,7 +160,20 @@ function decodeEntities(str: string) {
 
 const POST_FIELDS = `
   id slug title excerpt date isSticky
-  featuredImage { node { sourceUrl altText } }
+  featuredImage {
+    node {
+      altText
+      sourceUrl
+      mediaDetails {
+        sizes {
+          name
+          sourceUrl
+          width
+          height
+        }
+      }
+    }
+  }
   categories { nodes { name slug } }
   author { node { name slug description } }
   tags { nodes { name slug } }
@@ -190,15 +217,22 @@ export async function getHomepageData(): Promise<HomepageData> {
     }
   `);
 
-  const featured = data.featured.nodes.map(normalizeWPPost);
+  // Image width strategy per placement:
+  // featured hero (large card, 665px wide on desktop): 768px
+  // latest grid (medium card, 400px wide): 600px
+  // category spotlights (280px tall card): 600px
+  const normalizeHero = (wp: any) => normalizeWPPost(wp, 768);
+  const normalizeMed  = (wp: any) => normalizeWPPost(wp, 600);
+  const normalizeThumb = (wp: any) => normalizeWPPost(wp, 300);
+
+  const featured = data.featured.nodes.map(normalizeHero);
   return {
-    // If no sticky posts, fall back to first 3 from latest
-    featured: featured.length > 0 ? featured : data.latest.nodes.slice(0, 3).map(normalizeWPPost),
-    latest:   data.latest.nodes.map(normalizeWPPost),
-    arts:     data.arts.nodes.map(normalizeWPPost),
-    food:     data.food.nodes.map(normalizeWPPost),
-    music:    data.music.nodes.map(normalizeWPPost),
-    politics: data.politics.nodes.map(normalizeWPPost),
+    featured: featured.length > 0 ? featured : data.latest.nodes.slice(0, 3).map(normalizeHero),
+    latest:   data.latest.nodes.map(normalizeMed),
+    arts:     data.arts.nodes.map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
+    food:     data.food.nodes.map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
+    music:    data.music.nodes.map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
+    politics: data.politics.nodes.map((wp: any, i: number) => i === 0 ? normalizeMed(wp) : normalizeThumb(wp)),
   };
 }
 
