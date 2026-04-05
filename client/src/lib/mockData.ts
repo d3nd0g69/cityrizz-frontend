@@ -39,6 +39,7 @@ export const categories: Category[] = [
   { name: "Sports", slug: "sports", count: 15, color: "#16a085" },
   { name: "Opinion", slug: "opinion", count: 12, color: "#7f8c8d" },
   { name: "Things To Do", slug: "things-to-do", count: 34, color: "#27ae60" },
+  { name: "Home & Garden", slug: "home-garden", count: 11, color: "#2ecc71" },
 ];
 
 export const posts: Post[] = [

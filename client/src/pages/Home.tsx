@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { ChevronRight, Zap } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PostCard from "@/components/PostCard";
@@ -17,36 +17,8 @@ import {
   type Post,
   type HomepageData,
 } from "@/lib/api";
-import { trendingHeadlines } from "@/lib/mockData";
 
-// ── Breaking news ticker ──────────────────────────────────────────────────────
-
-function BreakingTicker() {
-  return (
-    <div className="bg-[#c0392b] text-white py-2 overflow-hidden">
-      <div className="container flex items-center gap-4">
-        <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-red-400">
-          <Zap size={14} className="fill-white" />
-          <span
-            className="text-xs font-bold uppercase tracking-widest whitespace-nowrap"
-            style={{ fontFamily: "'Oswald', sans-serif" }}
-          >
-            Breaking
-          </span>
-        </div>
-        <div className="overflow-hidden flex-1">
-          <div className="ticker-track text-xs font-medium">
-            {trendingHeadlines.join("   ·   ")}
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-            {trendingHeadlines.join("   ·   ")}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Hero section ──────────────────────────────────────────────────────────────
+// ── Hero section ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 function HeroSection({ posts }: { posts: Post[] }) {
   const [main, ...secondary] = posts;
@@ -235,7 +207,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      <BreakingTicker />
       <HeroSection posts={data.featured} />
       <LatestSection posts={data.latest} />
       <CategorySpotlight posts={data.arts}     categorySlug="arts"     categoryName="Arts & Culture" color="#8e44ad" />

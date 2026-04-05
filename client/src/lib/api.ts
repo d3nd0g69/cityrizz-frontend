@@ -63,6 +63,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   sports:         "#16a085",
   opinion:        "#7f8c8d",
   "things-to-do": "#27ae60",
+  "home-garden":   "#2ecc71",
 };
 
 export function getCategoryColor(slug: string): string {
@@ -267,8 +268,9 @@ export async function getPostsByCategory(categorySlug: string, limit = 12): Prom
     return mockGet(categorySlug) as Post[];
   }
   const nameMap: Record<string, string> = {
-    arts: "arts-culture",
-    food: "food-drink",
+    arts:          "arts-culture",
+    food:          "food-drink",
+    "home-garden": "home-garden",
   };
   const wpSlug = nameMap[categorySlug] || categorySlug;
   const data = await gql<any>(`

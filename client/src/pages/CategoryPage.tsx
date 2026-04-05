@@ -30,6 +30,18 @@ export default function CategoryPage() {
     });
   }, [slug]);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <div className="container py-20 text-center">
+          <div className="inline-block w-8 h-8 border-2 border-[#c0392b] border-t-transparent rounded-full animate-spin" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   if (!category) {
     return (
       <div className="min-h-screen bg-white">
