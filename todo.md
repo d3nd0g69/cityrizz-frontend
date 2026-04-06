@@ -36,4 +36,8 @@
 - [x] Show campaign history in admin dashboard
 
 ## Admin Access
-- [ ] Promote owner user to admin role in the database (pending first login)
+- [x] Promote owner user to admin role in the database (auto-promoted via upsertUser on first login)
+
+## Login & Admin Access
+- [x] Add visible Login button to the site header for the owner to authenticate
+- [x] Auto-promote OWNER_OPEN_ID to admin on first OAuth login (server-side hook in upsertUser)

@@ -16,8 +16,10 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Search, Menu, X, ChevronDown,
-  Facebook, Instagram, Twitter, Youtube,
+  Facebook, Instagram, Twitter, Youtube, LogIn, LayoutDashboard,
 } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { getLoginUrl } from "@/const";
 
 const utilityLinks = [
   { label: "About Us", href: "/about" },
@@ -104,6 +106,7 @@ const categoryNav = [
 ];
 
 export default function Header() {
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -197,8 +200,39 @@ export default function Header() {
             </nav>
           </div>
 
-          {/* Right: placeholder */}
-          <div />
+          {/* Right: login / admin */}
+          <div className="flex items-center gap-3">
+            {isAuthenticated ? (
+              <>
+                {user?.role === "admin" && (
+                  <Link
+                    href="/admin/subscribers"
+                    className="hidden md:flex items-center gap-1.5 text-xs text-gray-300 hover:text-white transition-colors no-underline"
+                    style={{ fontFamily: "'Oswald', sans-serif", letterSpacing: "0.04em" }}
+                  >
+                    <LayoutDashboard size={13} />
+                    Admin
+                  </Link>
+                )}
+                <button
+                  onClick={() => logout()}
+                  className="text-xs text-gray-400 hover:text-white transition-colors"
+                  style={{ fontFamily: "'Oswald', sans-serif", letterSpacing: "0.04em" }}
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <a
+                href={getLoginUrl()}
+                className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white transition-colors no-underline"
+                style={{ fontFamily: "'Oswald', sans-serif", letterSpacing: "0.04em" }}
+              >
+                <LogIn size={13} />
+                Login
+              </a>
+            )}
+          </div>
         </div>
       </div>
 
