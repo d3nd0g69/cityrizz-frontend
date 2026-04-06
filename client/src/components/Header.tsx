@@ -106,7 +106,7 @@ const categoryNav = [
 ];
 
 export default function Header() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, loading, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -202,7 +202,7 @@ export default function Header() {
 
           {/* Right: login / admin */}
           <div className="flex items-center gap-3">
-            {isAuthenticated ? (
+            {isAuthenticated && !loading ? (
               <>
                 {user?.role === "admin" && (
                   <Link
