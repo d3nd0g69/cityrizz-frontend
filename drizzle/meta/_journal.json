@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1775505916982,
+      "tag": "0000_needy_dragon_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1775506041548,
+      "tag": "0001_striped_thunderball",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1775506130026,
+      "tag": "0002_friendly_karnak",
+      "breakpoints": true
+    }
+  ]
+}

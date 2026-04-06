@@ -91,7 +91,7 @@ function LatestSection({ posts }: { posts: Post[] }) {
       <div className="container">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            <SectionHeader title="Latest Stories" href="/news" />
+            <SectionHeader title="Latest Stories" href="/category/news" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {posts.slice(0, 6).map((post) => (
                 <PostCard key={post.id} post={post} variant="medium" showExcerpt />

@@ -121,8 +121,9 @@ function normalizeWPPost(wp: any, imgWidth = 768): Post {
   const author = wp.author?.node;
   const rawSlug = cat?.slug || "uncategorized";
   const slugMap: Record<string, string> = {
-    "arts-culture": "arts",
-    "food-drink":   "food",
+    "arts-culture":    "arts",
+    "food-drink":      "food",
+    "home-and-garden": "home-garden",
   };
   const catSlug = slugMap[rawSlug] || rawSlug;
 
@@ -271,6 +272,7 @@ export async function getPostsByCategory(categorySlug: string, limit = 12): Prom
     arts:          "arts-culture",
     food:          "food-drink",
     "home-garden": "home-garden",
+    // music, opinion, sports, things-to-do use same slug in WP
   };
   const wpSlug = nameMap[categorySlug] || categorySlug;
   const data = await gql<any>(`
@@ -308,12 +310,21 @@ export async function getAllCategories(): Promise<Category[]> {
         nodes { name slug count }
       }
     }`);
-  return data.categories.nodes.map((c: any) => ({
-    name:  c.name,
-    slug:  c.slug,
-    count: c.count || 0,
-    color: getCategoryColor(c.slug),
-  }));
+  const slugNorm: Record<string, string> = {
+    "arts-culture":    "arts",
+    "food-drink":      "food",
+    "home-and-garden": "home-garden",
+    "home-garden":     "home-garden",
+  };
+  return data.categories.nodes.map((c: any) => {
+    const slug = slugNorm[c.slug] || c.slug;
+    return {
+      name:  c.name,
+      slug,
+      count: c.count || 0,
+      color: getCategoryColor(slug),
+    };
+  });
 }
 
 export async function searchPosts(query: string, limit = 10): Promise<Post[]> {

@@ -1,0 +1,1 @@
+ALTER TABLE `subscribers` MODIFY COLUMN `newsletters` varchar(255) DEFAULT 'all';
