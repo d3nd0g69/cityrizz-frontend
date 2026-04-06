@@ -612,24 +612,35 @@ function EventsApprovalTab() {
     status: statusFilter,
   });
 
+  const [pendingAction, setPendingAction] = useState<{ id: number; title: string; status: string } | null>(null);
+
   const updateStatusMutation = trpc.events.adminUpdateStatus.useMutation({
     onSuccess: () => {
       utils.events.adminList.invalidate();
       refetch();
+      if (pendingAction) {
+        if (pendingAction.status === "published") {
+          toast.success(`"${pendingAction.title}" approved and published`);
+        } else if (pendingAction.status === "rejected") {
+          toast.success(`"${pendingAction.title}" unpublished/rejected`);
+        }
+        setPendingAction(null);
+      }
     },
     onError: (err) => {
       toast.error(err.message || "Failed to update event status");
+      setPendingAction(null);
     },
   });
 
   function handleApprove(id: number, title: string) {
+    setPendingAction({ id, title, status: "published" });
     updateStatusMutation.mutate({ id, status: "published" });
-    toast.success(`"${title}" approved and published`);
   }
 
   function handleReject(id: number, title: string) {
+    setPendingAction({ id, title, status: "rejected" });
     updateStatusMutation.mutate({ id, status: "rejected" });
-    toast.error(`"${title}" rejected`);
   }
 
   const pendingCount = eventsData?.events.filter(e => e.status === "pending").length ?? 0;
