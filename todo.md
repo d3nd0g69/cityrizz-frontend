@@ -44,3 +44,10 @@
 
 ## Public Site Cleanup
 - [x] Remove Login/Admin/Sign Out from cityrizz.com header (keep on Manus admin site only)
+
+## Event Approval & Test Email
+- [x] Add approve/reject tRPC endpoints to events router
+- [ ] Add listPending events helper to server/db.ts
+- [ ] Build Events Approval tab in AdminSubscribersPage (pending list, approve/reject actions)
+- [ ] Add sendTestEmail tRPC endpoint to campaigns router
+- [x] Add Send Test Email button to campaign composer UI

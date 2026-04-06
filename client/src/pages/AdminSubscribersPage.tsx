@@ -1,10 +1,11 @@
 /*
- * CityRizz Admin — Subscriber & Campaign Dashboard
+ * CityRizz Admin — Subscriber, Campaign & Events Dashboard
  * Route: /admin/subscribers (protected: admin only)
  * Tabs:
  *   1. Subscribers — list, search, filter, export CSV, stats
- *   2. Send Campaign — compose, preview, send to all active subscribers
+ *   2. Send Campaign — compose, preview, test email, send to all active subscribers
  *   3. Campaign History — list of sent campaigns with stats
+ *   4. Events — approve/reject pending community-submitted events
  */
 
 import { useState } from "react";
@@ -14,6 +15,7 @@ import { toast } from "sonner";
 import {
   Download, Search, Users, UserCheck, UserX, RefreshCw,
   ArrowLeft, Send, History, Mail, Eye, X, CheckCircle, AlertCircle,
+  Calendar, Check, XCircle, Clock, MapPin, ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
@@ -82,7 +84,6 @@ function SubscribersTab() {
 
   return (
     <div>
-      {/* Page title */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-black text-[#1a1a2e]" style={{ fontFamily: "'Oswald', sans-serif", letterSpacing: "0.04em", textTransform: "uppercase" }}>
           Newsletter Subscribers
@@ -102,14 +103,12 @@ function SubscribersTab() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <StatCard icon={<Users size={20} className="text-white" />} label="Total Subscribers" value={stats?.total ?? "—"} color="bg-[#1a1a2e]" />
         <StatCard icon={<UserCheck size={20} className="text-white" />} label="Active" value={stats?.active ?? "—"} color="bg-[#27ae60]" />
         <StatCard icon={<UserX size={20} className="text-white" />} label="Unsubscribed" value={stats?.unsubscribed ?? "—"} color="bg-[#c0392b]" />
       </div>
 
-      {/* Filters */}
       <div className="bg-white border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-3">
         <form onSubmit={handleSearch} className="flex-1 flex gap-2">
           <div className="flex-1 flex items-center border border-gray-200 px-3">
@@ -139,7 +138,6 @@ function SubscribersTab() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white border border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="py-16 text-center">
@@ -215,7 +213,7 @@ function PreviewModal({ subject, bodyHtml, onClose }: { subject: string; bodyHtm
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="bg-[#1a1a2e] text-white px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="sticky top-0 bg-[#1a1a2e] text-white px-6 py-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5" style={{ fontFamily: "'Oswald', sans-serif" }}>Preview</p>
             <h2 className="text-base font-bold">{subject}</h2>
@@ -251,12 +249,23 @@ function SendCampaignTab() {
   });
   const [showPreview, setShowPreview] = useState(false);
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number; message: string } | null>(null);
+  const [testEmail, setTestEmail] = useState("");
+  const [showTestInput, setShowTestInput] = useState(false);
+  const [savedCampaignId, setSavedCampaignId] = useState<number | null>(null);
 
   const { data: stats } = trpc.newsletter.adminStats.useQuery();
 
+  const createMutation = trpc.campaigns.create.useMutation({
+    onSuccess: (data) => {
+      setSavedCampaignId(data.id);
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to save campaign");
+    },
+  });
+
   const createAndSendMutation = trpc.campaigns.create.useMutation({
     onSuccess: async (data) => {
-      // After creating, immediately send
       sendMutation.mutate({ campaignId: data.id });
     },
     onError: (err) => {
@@ -275,10 +284,48 @@ function SendCampaignTab() {
     },
   });
 
+  const sendTestMutation = trpc.campaigns.sendTest.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message);
+        setShowTestInput(false);
+      } else {
+        toast.error(data.message);
+      }
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to send test email");
+    },
+  });
+
   const isSending = createAndSendMutation.isPending || sendMutation.isPending;
+  const isSendingTest = createMutation.isPending || sendTestMutation.isPending;
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
+    // Reset saved campaign ID when form changes (need to re-save)
+    setSavedCampaignId(null);
+  }
+
+  async function handleSendTest() {
+    if (!form.subject.trim()) { toast.error("Subject is required"); return; }
+    if (!form.bodyHtml.trim()) { toast.error("Email body is required"); return; }
+    if (!testEmail.trim()) { toast.error("Test email address is required"); return; }
+
+    // Save the campaign first if not already saved
+    if (savedCampaignId) {
+      sendTestMutation.mutate({ campaignId: savedCampaignId, testEmail });
+    } else {
+      createMutation.mutate(
+        { subject: form.subject, previewText: form.previewText || undefined, bodyHtml: form.bodyHtml, bodyText: form.bodyText || undefined },
+        {
+          onSuccess: (data) => {
+            setSavedCampaignId(data.id);
+            sendTestMutation.mutate({ campaignId: data.id, testEmail });
+          },
+        }
+      );
+    }
   }
 
   function handleSend() {
@@ -308,7 +355,7 @@ function SendCampaignTab() {
           <p className="text-sm text-yellow-600">{sendResult.failed} delivery failures — check SendGrid logs for details.</p>
         )}
         <button
-          onClick={() => { setSendResult(null); setForm({ subject: "", previewText: "", bodyHtml: "", bodyText: "" }); }}
+          onClick={() => { setSendResult(null); setForm({ subject: "", previewText: "", bodyHtml: "", bodyText: "" }); setSavedCampaignId(null); }}
           className="mt-6 px-6 py-3 bg-[#c0392b] text-white text-sm font-bold hover:bg-[#a93226] transition-colors"
           style={{ fontFamily: "'Oswald', sans-serif" }}
         >
@@ -376,7 +423,7 @@ function SendCampaignTab() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => setShowPreview(true)}
               disabled={!form.subject || !form.bodyHtml}
@@ -386,6 +433,46 @@ function SendCampaignTab() {
               <Eye size={14} />
               Preview
             </button>
+
+            {/* Send Test Email */}
+            <div className="relative">
+              {showTestInput ? (
+                <div className="flex items-center gap-2 bg-white border border-[#c0392b] px-3 py-2">
+                  <Mail size={14} className="text-[#c0392b] shrink-0" />
+                  <input
+                    type="email"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="text-sm outline-none w-44"
+                    onKeyDown={(e) => e.key === "Enter" && handleSendTest()}
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSendTest}
+                    disabled={isSendingTest || !testEmail}
+                    className="px-3 py-1 bg-[#c0392b] text-white text-xs font-bold disabled:opacity-60"
+                    style={{ fontFamily: "'Oswald', sans-serif" }}
+                  >
+                    {isSendingTest ? "Sending..." : "Send"}
+                  </button>
+                  <button onClick={() => setShowTestInput(false)} className="text-gray-400 hover:text-gray-600">
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowTestInput(true)}
+                  disabled={!form.subject || !form.bodyHtml}
+                  className="flex items-center gap-2 px-5 py-3 border border-gray-300 text-gray-600 text-sm font-bold hover:border-[#c0392b] hover:text-[#c0392b] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ fontFamily: "'Oswald', sans-serif" }}
+                >
+                  <Mail size={14} />
+                  Send Test Email
+                </button>
+              )}
+            </div>
+
             <button
               onClick={handleSend}
               disabled={isSending || !form.subject || !form.bodyHtml}
@@ -406,7 +493,7 @@ function SendCampaignTab() {
             </h3>
             <ul className="space-y-2 text-xs text-gray-300 leading-relaxed">
               <li>✓ Preview the email to check formatting</li>
-              <li>✓ Test links are correct</li>
+              <li>✓ Send a test to your own inbox first</li>
               <li>✓ Subject line is compelling (40–60 chars)</li>
               <li>✓ Preview text adds context</li>
               <li>✓ Unsubscribe link is included in your HTML</li>
@@ -462,7 +549,7 @@ function CampaignHistoryTab() {
         </div>
       ) : !campaigns?.length ? (
         <div className="py-16 text-center text-gray-400">
-          <Mail size={32} className="mx-auto mb-3 opacity-30" />
+          <History size={32} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">No campaigns sent yet.</p>
           <p className="text-xs mt-1">Use the "Send Campaign" tab to send your first email.</p>
         </div>
@@ -513,13 +600,226 @@ function CampaignHistoryTab() {
   );
 }
 
+// ── Tab: Events Approval ──────────────────────────────────────────────────────
+
+function EventsApprovalTab() {
+  const utils = trpc.useUtils();
+  const [statusFilter, setStatusFilter] = useState<"pending" | "published" | "rejected" | "all">("pending");
+
+  const { data: eventsData, isLoading, refetch } = trpc.events.adminList.useQuery({
+    page: 1,
+    limit: 100,
+    status: statusFilter,
+  });
+
+  const updateStatusMutation = trpc.events.adminUpdateStatus.useMutation({
+    onSuccess: () => {
+      utils.events.adminList.invalidate();
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to update event status");
+    },
+  });
+
+  function handleApprove(id: number, title: string) {
+    updateStatusMutation.mutate({ id, status: "published" });
+    toast.success(`"${title}" approved and published`);
+  }
+
+  function handleReject(id: number, title: string) {
+    updateStatusMutation.mutate({ id, status: "rejected" });
+    toast.error(`"${title}" rejected`);
+  }
+
+  const pendingCount = eventsData?.events.filter(e => e.status === "pending").length ?? 0;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-black text-[#1a1a2e]" style={{ fontFamily: "'Oswald', sans-serif", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            Events
+          </h2>
+          {statusFilter === "pending" && pendingCount > 0 && (
+            <span className="px-2 py-0.5 bg-[#c0392b] text-white text-xs font-bold rounded-full">
+              {pendingCount} pending
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => refetch()}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-600 text-sm hover:border-[#1a1a2e] transition-colors">
+            <RefreshCw size={14} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {(["pending", "published", "rejected", "all"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`p-4 border text-left transition-colors ${
+              statusFilter === s
+                ? s === "pending" ? "border-[#c0392b] bg-red-50"
+                  : s === "published" ? "border-[#27ae60] bg-green-50"
+                  : s === "rejected" ? "border-gray-400 bg-gray-50"
+                  : "border-[#1a1a2e] bg-[#1a1a2e]/5"
+                : "border-gray-200 bg-white hover:border-gray-400"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              {s === "pending" && <Clock size={14} className={statusFilter === s ? "text-[#c0392b]" : "text-gray-400"} />}
+              {s === "published" && <Check size={14} className={statusFilter === s ? "text-[#27ae60]" : "text-gray-400"} />}
+              {s === "rejected" && <XCircle size={14} className={statusFilter === s ? "text-gray-600" : "text-gray-400"} />}
+              {s === "all" && <Calendar size={14} className={statusFilter === s ? "text-[#1a1a2e]" : "text-gray-400"} />}
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                {s}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="py-16 text-center">
+          <div className="inline-block w-8 h-8 border-2 border-[#c0392b] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : !eventsData?.events.length ? (
+        <div className="py-16 text-center text-gray-400">
+          <Calendar size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">No {statusFilter === "all" ? "" : statusFilter} events found.</p>
+          {statusFilter === "pending" && (
+            <p className="text-xs mt-1">Community-submitted events will appear here for review.</p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {eventsData.events.map((event) => (
+            <div key={event.id} className="bg-white border border-gray-200 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className={`inline-flex items-center px-2 py-0.5 text-xs font-bold uppercase rounded-sm ${
+                      event.status === "published" ? "bg-green-100 text-green-700"
+                      : event.status === "pending" ? "bg-yellow-100 text-yellow-700"
+                      : "bg-gray-100 text-gray-500"
+                    }`} style={{ fontFamily: "'Oswald', sans-serif" }}>
+                      {event.status}
+                    </span>
+                    {event.category && (
+                      <span className="text-xs text-gray-400 uppercase tracking-wider" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                        {event.category}
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="font-bold text-[#1a1a2e] text-base mb-1">{event.title}</h3>
+
+                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-2 flex-wrap">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={11} />
+                      {event.eventDate}{event.eventTime ? ` · ${event.eventTime}` : ""}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MapPin size={11} />
+                      {event.venue}{event.location ? `, ${event.location}` : ""}
+                    </span>
+                    {event.price && <span>{event.price}</span>}
+                  </div>
+
+                  {event.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-2">{event.description}</p>
+                  )}
+
+                  <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                    {event.contactName && <span>Contact: {event.contactName}</span>}
+                    {event.contactEmail && <span>{event.contactEmail}</span>}
+                    {event.externalUrl && (
+                      <a href={event.externalUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[#c0392b] hover:underline">
+                        <ExternalLink size={10} />
+                        Event URL
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action buttons — only show for pending events */}
+                {event.status === "pending" && (
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      onClick={() => handleApprove(event.id, event.title)}
+                      disabled={updateStatusMutation.isPending}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-[#27ae60] text-white text-xs font-bold hover:bg-[#219a52] transition-colors disabled:opacity-60"
+                      style={{ fontFamily: "'Oswald', sans-serif" }}
+                    >
+                      <Check size={12} />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleReject(event.id, event.title)}
+                      disabled={updateStatusMutation.isPending}
+                      className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-gray-600 text-xs font-bold hover:border-[#c0392b] hover:text-[#c0392b] transition-colors disabled:opacity-60"
+                      style={{ fontFamily: "'Oswald', sans-serif" }}
+                    >
+                      <XCircle size={12} />
+                      Reject
+                    </button>
+                  </div>
+                )}
+
+                {/* Re-publish rejected events */}
+                {event.status === "rejected" && (
+                  <button
+                    onClick={() => handleApprove(event.id, event.title)}
+                    disabled={updateStatusMutation.isPending}
+                    className="flex items-center gap-1.5 px-4 py-2 border border-[#27ae60] text-[#27ae60] text-xs font-bold hover:bg-[#27ae60] hover:text-white transition-colors disabled:opacity-60 shrink-0"
+                    style={{ fontFamily: "'Oswald', sans-serif" }}
+                  >
+                    <Check size={12} />
+                    Publish
+                  </button>
+                )}
+
+                {/* Un-publish published events */}
+                {event.status === "published" && (
+                  <button
+                    onClick={() => handleReject(event.id, event.title)}
+                    disabled={updateStatusMutation.isPending}
+                    className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-gray-500 text-xs font-bold hover:border-[#c0392b] hover:text-[#c0392b] transition-colors disabled:opacity-60 shrink-0"
+                    style={{ fontFamily: "'Oswald', sans-serif" }}
+                  >
+                    <XCircle size={12} />
+                    Unpublish
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 
-type AdminTab = "subscribers" | "send-campaign" | "history";
+type AdminTab = "subscribers" | "send-campaign" | "history" | "events";
 
 export default function AdminSubscribersPage() {
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>("subscribers");
+
+  // Check for pending events to show badge
+  const { data: pendingEvents } = trpc.events.adminList.useQuery(
+    { page: 1, limit: 100, status: "pending" },
+    { enabled: isAuthenticated && user?.role === "admin" }
+  );
+  const pendingCount = pendingEvents?.events.length ?? 0;
 
   if (!isAuthenticated || user?.role !== "admin") {
     return (
@@ -535,10 +835,11 @@ export default function AdminSubscribersPage() {
     );
   }
 
-  const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
+  const tabs: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "subscribers", label: "Subscribers", icon: <Users size={14} /> },
     { id: "send-campaign", label: "Send Campaign", icon: <Send size={14} /> },
     { id: "history", label: "Campaign History", icon: <History size={14} /> },
+    { id: "events", label: "Events", icon: <Calendar size={14} />, badge: pendingCount },
   ];
 
   return (
@@ -563,12 +864,12 @@ export default function AdminSubscribersPage() {
       {/* Tab navigation */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="flex gap-0">
+          <div className="flex gap-0 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-4 text-sm font-bold border-b-2 transition-colors ${
+                className={`flex items-center gap-2 px-5 py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? "border-[#c0392b] text-[#c0392b]"
                     : "border-transparent text-gray-500 hover:text-[#1a1a2e] hover:border-gray-300"
@@ -577,6 +878,11 @@ export default function AdminSubscribersPage() {
               >
                 {tab.icon}
                 {tab.label}
+                {tab.badge != null && tab.badge > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-[#c0392b] text-white text-xs font-bold rounded-full leading-none">
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -588,6 +894,7 @@ export default function AdminSubscribersPage() {
         {activeTab === "subscribers" && <SubscribersTab />}
         {activeTab === "send-campaign" && <SendCampaignTab />}
         {activeTab === "history" && <CampaignHistoryTab />}
+        {activeTab === "events" && <EventsApprovalTab />}
       </div>
     </div>
   );

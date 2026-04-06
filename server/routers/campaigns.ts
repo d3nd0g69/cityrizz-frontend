@@ -104,6 +104,31 @@ export const campaignsRouter = router({
       return { success: true, id };
     }),
 
+  /** Send a test email to a single address */
+  sendTest: adminProcedure
+    .input(
+      z.object({
+        campaignId: z.number().int().positive(),
+        testEmail: z.string().email(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const campaign = await getCampaignById(input.campaignId);
+      if (!campaign) throw new Error("Campaign not found");
+
+      const { sent, failed } = await sendCampaignEmail({
+        recipients: [{ email: input.testEmail, name: "Test Recipient" }],
+        subject: `[TEST] ${campaign.subject}`,
+        bodyHtml: campaign.bodyHtml,
+        bodyText: campaign.bodyText ?? undefined,
+      });
+
+      if (failed > 0) {
+        return { success: false, message: `Failed to send test email to ${input.testEmail}.` };
+      }
+      return { success: true, message: `Test email sent to ${input.testEmail}.` };
+    }),
+
   /** Send a campaign to all active subscribers */
   send: adminProcedure
     .input(
