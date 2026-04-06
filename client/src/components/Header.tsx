@@ -200,7 +200,8 @@ export default function Header() {
             </nav>
           </div>
 
-          {/* Right: login / admin */}
+          {/* Right: login / admin — hidden on public site, shown only on Manus admin site */}
+          {import.meta.env.VITE_SHOW_ADMIN_LOGIN === 'true' && (
           <div className="flex items-center gap-3">
             {isAuthenticated && !loading ? (
               <>
@@ -233,6 +234,7 @@ export default function Header() {
               </a>
             )}
           </div>
+          )}
         </div>
       </div>
 

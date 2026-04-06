@@ -41,3 +41,6 @@
 ## Login & Admin Access
 - [x] Add visible Login button to the site header for the owner to authenticate
 - [x] Auto-promote OWNER_OPEN_ID to admin on first OAuth login (server-side hook in upsertUser)
+
+## Public Site Cleanup
+- [x] Remove Login/Admin/Sign Out from cityrizz.com header (keep on Manus admin site only)
