@@ -20,3 +20,20 @@
 ## Header / Navigation
 - [x] Add dropdown submenus to main nav (matching CityBeat second image)
 - [x] Fix hamburger menu — currently non-functional, needs full menu layout from second image
+
+## Events — Real Data Source
+- [x] Add events table to drizzle/schema.ts and run db:push
+- [x] Add event DB helpers to server/db.ts
+- [x] Build events tRPC router (list, getById, submit)
+- [x] Update EventsPage.tsx to use tRPC queries instead of mock data
+- [x] Persist submit-event form to DB via tRPC mutation
+
+## Send Campaign Feature
+- [x] Add campaigns table to drizzle/schema.ts and run db:push
+- [x] Build campaign tRPC router (create, send, list history)
+- [x] Add SendGrid bulk send helper to server/email.ts
+- [x] Build Send Campaign UI in AdminSubscribersPage (compose, preview, send)
+- [x] Show campaign history in admin dashboard
+
+## Admin Access
+- [ ] Promote owner user to admin role in the database (pending first login)

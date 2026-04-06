@@ -1,4 +1,4 @@
-import { eq, desc, like, or, count } from "drizzle-orm";
+import { eq, desc, asc, like, or, count, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, subscribers, InsertSubscriber, Subscriber } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -230,4 +230,138 @@ export async function getSubscriberStats(): Promise<{
     active: Number(activeResult[0]?.value ?? 0),
     unsubscribed: Number(unsubResult[0]?.value ?? 0),
   };
+}
+
+// ── Event helpers ─────────────────────────────────────────────────────────────
+
+import { events, campaigns, InsertEvent, Event, InsertCampaign, Campaign } from "../drizzle/schema";
+
+/** List published events with optional category filter and pagination */
+export async function listEvents(opts: {
+  page?: number;
+  limit?: number;
+  category?: string;
+  featuredOnly?: boolean;
+  upcoming?: boolean;
+} = {}): Promise<{ events: Event[]; total: number }> {
+  const db = await getDb();
+  if (!db) return { events: [], total: 0 };
+
+  const page = opts.page ?? 1;
+  const limit = opts.limit ?? 20;
+  const offset = (page - 1) * limit;
+
+  const conditions: any[] = [eq(events.status, "published")];
+
+  if (opts.category && opts.category !== "All") {
+    conditions.push(eq(events.category, opts.category));
+  }
+  if (opts.featuredOnly) {
+    conditions.push(eq(events.featured, true));
+  }
+  if (opts.upcoming) {
+    const today = new Date().toISOString().slice(0, 10);
+    conditions.push(sql`${events.eventDate} >= ${today}`);
+  }
+
+  const where = conditions.length === 1 ? conditions[0] : and(...conditions);
+
+  const [rows, countResult] = await Promise.all([
+    db.select().from(events).where(where).orderBy(asc(events.eventDate)).limit(limit).offset(offset),
+    db.select({ value: count() }).from(events).where(where),
+  ]);
+
+  return {
+    events: rows,
+    total: Number(countResult[0]?.value ?? 0),
+  };
+}
+
+/** Get a single event by slug */
+export async function getEventBySlug(slug: string): Promise<Event | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(events).where(eq(events.slug, slug)).limit(1);
+  return result[0];
+}
+
+/** Submit a new event (status: pending) */
+export async function submitEvent(data: Omit<InsertEvent, "id" | "createdAt" | "updatedAt" | "status">): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(events).values({ ...data, status: "pending" });
+}
+
+/** Admin: list all events (any status) */
+export async function adminListEvents(opts: {
+  page?: number;
+  limit?: number;
+  status?: "published" | "pending" | "rejected" | "all";
+} = {}): Promise<{ events: Event[]; total: number }> {
+  const db = await getDb();
+  if (!db) return { events: [], total: 0 };
+
+  const page = opts.page ?? 1;
+  const limit = opts.limit ?? 50;
+  const offset = (page - 1) * limit;
+
+  const conditions: any[] = [];
+  if (opts.status && opts.status !== "all") {
+    conditions.push(eq(events.status, opts.status));
+  }
+
+  const where = conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined;
+
+  const [rows, countResult] = await Promise.all([
+    where
+      ? db.select().from(events).where(where).orderBy(desc(events.createdAt)).limit(limit).offset(offset)
+      : db.select().from(events).orderBy(desc(events.createdAt)).limit(limit).offset(offset),
+    where
+      ? db.select({ value: count() }).from(events).where(where)
+      : db.select({ value: count() }).from(events),
+  ]);
+
+  return {
+    events: rows,
+    total: Number(countResult[0]?.value ?? 0),
+  };
+}
+
+/** Admin: update event status */
+export async function updateEventStatus(id: number, status: "published" | "pending" | "rejected"): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(events).set({ status }).where(eq(events.id, id));
+}
+
+// ── Campaign helpers ──────────────────────────────────────────────────────────
+
+/** Create a new campaign draft */
+export async function createCampaign(data: Pick<InsertCampaign, "subject" | "previewText" | "bodyHtml" | "bodyText">): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(campaigns).values({ ...data, status: "draft" });
+  return (result as any)[0]?.insertId ?? 0;
+}
+
+/** Mark campaign as sent */
+export async function markCampaignSent(id: number, recipientCount: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(campaigns).set({ status: "sent", recipientCount, sentAt: new Date() }).where(eq(campaigns.id, id));
+}
+
+/** List all campaigns */
+export async function listCampaigns(): Promise<Campaign[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(campaigns).orderBy(desc(campaigns.createdAt));
+}
+
+/** Get campaign by ID */
+export async function getCampaignById(id: number): Promise<Campaign | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(campaigns).where(eq(campaigns.id, id)).limit(1);
+  return result[0];
 }
